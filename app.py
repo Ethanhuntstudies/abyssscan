@@ -61,7 +61,7 @@ def make_localized_heatmap(pt_model, img, boxes):
 
 uploaded_file = st.file_uploader("Upload a sonar image", type=["jpg", "jpeg", "png"])
 
-if uploaded_file is not None:
+#if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
     img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
     st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), caption="Uploaded Sonar Image", use_container_width=True)
@@ -84,4 +84,4 @@ if uploaded_file is not None:
             w, h = float(x2 - x1), float(y2 - y1)
             img_h, img_w = r.orig_shape
             severity, reason = get_severity(conf, w, h, img_w, img_h)
-            st.write(f"**Confidence:** {conf:.2f} | **Severity:** {severity} | {reason}")V
+            st.write("**Confidence:** " + str(round(conf, 2)) + " | **Severity:** " + severity + " | " + reason)
