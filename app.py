@@ -25,10 +25,11 @@ def get_severity(confidence, box_width, box_height, image_width, image_height):
     else:
         return "Low", "Small or uncertain detection"
 
-def get_activation_map(pt_model, crop_img):
-    crop_resized = cv2.resize(crop_img, (416, 416))
-    rgb_crop = crop_resized.astype(np.float32) / 255.0
-    input_tensor = torch.from_numpy(rgb_crop).permute(2, 0, 1).unsqueeze(0).float()
+def make_whole_image_heatmap(pt_model, img):
+    img_resized = cv2.resize(img, (416, 416))
+    rgb_img = img_resized.astype(np.float32) / 255.0
+    input_tensor = torch.from_numpy(rgb_img).permute(2, 0, 1).unsqueeze(0).float()
+
     activations = []
     def hook(module, input, output):
         activations.append(output)
@@ -37,27 +38,15 @@ def get_activation_map(pt_model, crop_img):
     with torch.no_grad():
         pt_model(input_tensor)
     handle.remove()
+
     act = activations[0][0]
     heatmap = act.mean(dim=0).numpy()
     heatmap = np.maximum(heatmap, 0)
     heatmap = heatmap / (heatmap.max() + 1e-8)
-    heatmap = cv2.resize(heatmap, (crop_img.shape[1], crop_img.shape[0]))
-    return heatmap
-
-def make_localized_heatmap(pt_model, img, boxes):
-    dimmed = cv2.addWeighted(img, 0.3, np.zeros_like(img), 0.7, 0)
-    for box in boxes:
-        x1, y1, x2, y2 = map(int, box.xyxy[0])
-        x1, y1 = max(0, x1), max(0, y1)
-        x2, y2 = min(img.shape[1], x2), min(img.shape[0], y2)
-        crop = img[y1:y2, x1:x2]
-        if crop.size == 0:
-            continue
-        heatmap = get_activation_map(pt_model, crop)
-        heatmap_colored = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
-        blended = cv2.addWeighted(img[y1:y2, x1:x2], 0.5, heatmap_colored, 0.5, 0)
-        dimmed[y1:y2, x1:x2] = blended
-    return dimmed
+    heatmap = cv2.resize(heatmap, (img.shape[1], img.shape[0]))
+    heatmap_colored = cv2.applyColorMap(np.uint8(255 * heatmap), cv2.COLORMAP_JET)
+    overlay = cv2.addWeighted(img, 0.6, heatmap_colored, 0.4, 0)
+    return overlay
 
 uploaded_file = st.file_uploader("Upload a sonar image", type=["jpg", "jpeg", "png"])
 
@@ -74,8 +63,8 @@ if uploaded_file is not None:
     if len(r.boxes) == 0:
         st.info("No debris detected in this image.")
     else:
-        heatmap_img = make_localized_heatmap(model.model, img, r.boxes)
-        st.image(cv2.cvtColor(heatmap_img, cv2.COLOR_BGR2RGB), caption="Why the AI flagged this (heatmap, localized)", use_container_width=True)
+        heatmap_img = make_whole_image_heatmap(model.model, img)
+        st.image(cv2.cvtColor(heatmap_img, cv2.COLOR_BGR2RGB), caption="Why the AI flagged this (heatmap)", use_container_width=True)
 
         st.subheader("Detections")
         for box in r.boxes:
