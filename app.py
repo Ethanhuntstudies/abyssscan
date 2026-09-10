@@ -8,6 +8,8 @@ st.set_page_config(page_title="AbyssScan - Sonar Debris Detection", layout="wide
 st.title("AbyssScan - AI Sonar Debris Detection")
 st.write("Upload a side-scan sonar image to detect debris, see why it was flagged, and how urgent it is.")
 
+st.caption("EHS x CT")
+
 @st.cache_resource
 def load_model():
     return YOLO("best.pt")
